@@ -1,0 +1,70 @@
+provider "aws" {
+  region = "eu-central-1"
+}
+
+
+data "aws_vpc" "default" {
+  default = true
+}
+
+
+data "aws_subnets" "default" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+
+
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+  }
+}
+
+
+resource "aws_security_group" "instance_sg" {
+  name_prefix = "ec2-instance-sg-"
+  vpc_id      = data.aws_vpc.default.id
+
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+
+resource "aws_instance" "ec2_instance" {
+  count         = 1
+  ami           = data.aws_ami.amazon_linux.id
+  instance_type = "t2.micro"
+  subnet_id     = data.aws_subnets.default.ids[count.index % length(data.aws_subnets.default.ids)]
+  security_groups = [aws_security_group.instance_sg.id]
+
+  # Add key pair if you have one (optional, uncomment if needed)
+   key_name = ""
+
+  tags = {
+    Name = "ec2-instance-${count.index + 1}"
+  }
+}
+
+
+output "instance_public_ips" {
+  value = aws_instance.ec2_instance[*].public_ip
+}

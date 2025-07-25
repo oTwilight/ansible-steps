@@ -1,0 +1,47 @@
+---
+- name: Install and configure Nginx
+  hosts: ubuntu_servers
+  gather_facts: yes
+  become: yes
+
+  vars_files:
+    - ./vars/group_vars.yml
+    - ./vars/host_vars/ubuntu_server_ip.yml
+
+  vars:
+    mylink: "~/example"
+    mysrc: "/proc/cpuinfo"
+    
+  tasks:
+    - name: Install nginx
+      apt:
+        name: "{{ nginx_package }}"
+        state: present
+        update_cache: yes
+      when: ansible_distribution == "Ubuntu"
+
+    - name: Copy custom nginx config
+      copy:
+        src: templates/nginx.conf
+        dest: "{{ nginx_conf_path }}"
+        backup: yes
+      notify: restart nginx
+      when: ansible_distribution == "Ubuntu"
+
+    - name: Show custom message
+      debug:
+        msg: "{{ custom_message }}"
+
+ 
+    - name: Creating a symlink
+      ansible.builtin.file:
+        src: "{{ mysrc }}"
+        dest: "{{ mylink }}"
+        state: link
+
+
+  handlers:
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted
